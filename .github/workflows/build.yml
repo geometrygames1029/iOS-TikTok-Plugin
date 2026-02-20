@@ -1,31 +1,26 @@
-name: Build_TikTok_Mod
-on: [push, workflow_dispatch] # Запускается при пуше или кнопкой вручную
+name: Build Swift App
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
 
 jobs:
-  build_ios:
+  build:
     runs-on: macos-latest
+
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+    - name: Checkout code
+      uses: actions/checkout@v4
 
-      - name: Set up Xcode
-        run: sudo xcode-select -s /Applications/Xcode.app
+    - name: Set Xcode version
+      run: sudo xcode-select -s /Applications/Xcode_15.0.app
 
-      - name: Compile IPA
-        run: |
-          mkdir -p Payload/TikTokMod.app
-          # Компиляция интерфейса
-          swiftc -o Payload/TikTokMod.app/TikTokMod ContentView.swift \
-          -target arm64-apple-ios15.0 \
-          -sdk $(xcrun --show-sdk-path --sdk iphoneos)
-          
-          # Создание конфига приложения
-          echo '<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com"><plist version="1.0"><dict><key>CFBundleExecutable</key><string>TikTokMod</string><key>CFBundleIdentifier</key><string>com.mod.tiktok</string><key>CFBundleName</key><string>TikTokMod</string><key>CFBundlePackageType</key><string>APPL</string><key>CFBundleShortVersionString</key><string>1.0</string><key>LSRequiresIPhoneOS</key><true/><key>MinimumOSVersion</key><string>15.0</string></dict></plist>' > Payload/TikTokMod.app/Info.plist
-          
-          zip -r TikTokMod.ipa Payload
-
-      - name: Upload
-        uses: actions/upload-artifact@v4
-        with:
-          name: TikTokMod-Package
-          path: TikTokMod.ipa
+    - name: Build Project
+      run: |
+        xcodebuild build \
+          -scheme YourProjectName \
+          -sdk iphoneos \
+          -destination 'generic/platform=iOS' \
+          CODE_SIGNING_ALLOWED=NO
