@@ -1,39 +1,31 @@
-name: Build-TikTok-Mod-IPA
-
-on:
-  push:
-    branches: [ "main" ] # Сборка начнется, как только ты закинешь код в ветку main
+name: Build_TikTok_Mod
+on: [push, workflow_dispatch] # Запускается при пуше или кнопкой вручную
 
 jobs:
-  build:
-    runs-on: macos-latest # Запускаем виртуальный Мак в облаке
-
+  build_ios:
+    runs-on: macos-latest
     steps:
-      - name: Checkout code
+      - name: Checkout
         uses: actions/checkout@v4
 
       - name: Set up Xcode
         run: sudo xcode-select -s /Applications/Xcode.app
 
-      - name: Compile Swift App
+      - name: Compile IPA
         run: |
-          # Создаем структуру приложения iOS
           mkdir -p Payload/TikTokMod.app
-          
-          # Компилируем твой Swift код в исполняемый файл для iPhone (arm64)
+          # Компиляция интерфейса
           swiftc -o Payload/TikTokMod.app/TikTokMod ContentView.swift \
           -target arm64-apple-ios15.0 \
-          -sdk $(xcrun --show-sdk-path --sdk iphoneos) \
-          -Xlinker -rpath -Xlinker /usr/lib/swift
+          -sdk $(xcrun --show-sdk-path --sdk iphoneos)
           
-          # Создаем минимальный Info.plist, чтобы iOS поняла, что это приложение
-          echo '<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com"><plist version="1.0"><dict><key>CFBundleExecutable</key><string>TikTokMod</string><key>CFBundleIdentifier</key><string>com.yourname.tiktokmod</string><key>CFBundleName</key><string>TikTokMod</string><key>CFBundlePackageType</key><string>APPL</string><key>CFBundleShortVersionString</key><string>1.0</string><key>LSRequiresIPhoneOS</key><true/><key>MinimumOSVersion</key><string>15.0</string></dict></plist>' > Payload/TikTokMod.app/Info.plist
+          # Создание конфига приложения
+          echo '<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com"><plist version="1.0"><dict><key>CFBundleExecutable</key><string>TikTokMod</string><key>CFBundleIdentifier</key><string>com.mod.tiktok</string><key>CFBundleName</key><string>TikTokMod</string><key>CFBundlePackageType</key><string>APPL</string><key>CFBundleShortVersionString</key><string>1.0</string><key>LSRequiresIPhoneOS</key><true/><key>MinimumOSVersion</key><string>15.0</string></dict></plist>' > Payload/TikTokMod.app/Info.plist
           
-          # Упаковываем всё в IPA
           zip -r TikTokMod.ipa Payload
 
-      - name: Upload Artifact
+      - name: Upload
         uses: actions/upload-artifact@v4
         with:
-          name: TikTokMod-App-Package
+          name: TikTokMod-Package
           path: TikTokMod.ipa
