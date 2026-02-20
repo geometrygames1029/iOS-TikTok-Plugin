@@ -1,43 +1,67 @@
 import SwiftUI
 
 struct ContentView: View {
-    @State private var isConnected = false
-    @State private var selectedCountry = "USA"
+    @State private var position: CGFloat = 0.5 // 0.5 — середина
+    @State private var winner: String? = nil
     
-    let countries = [
-        ["name": "USA", "flag": "🇺🇸", "mcc": "310"],
-        ["name": "Kazakhstan", "flag": "🇰🇿", "mcc": "401"],
-        ["name": "Belarus", "flag": "🇧🇾", "mcc": "257"],
-        ["name": "Germany", "flag": "🇩🇪", "mcc": "262"]
-    ]
-
     var body: some View {
-        VStack(spacing: 30) {
-            Text("TikTok Region Changer")
-                .font(.largeTitle).bold()
-            
-            // Кнопка ВКЛ/ВЫКЛ
-            Button(action: { isConnected.toggle() }) {
+        ZStack {
+            VStack(spacing: 0) {
+                // Зона Брата (сверху)
                 ZStack {
-                    Circle()
-                        .fill(isConnected ? Color.green : Color.red)
-                        .frame(width: 150, height: 150)
-                    Text(isConnected ? "ON" : "OFF")
-                        .foregroundColor(.white)
+                    Color.blue
+                    Text("БРАТ").font(.largeTitle).bold().rotationEffect(.degrees(180))
+                }
+                .frame(maxHeight: .infinity)
+                .frame(height: UIScreen.main.bounds.height * position)
+                .onTapGesture { self.moveLine(by: 0.02) } // Брат тянет вниз (увеличивает свою долю)
+
+                // Зона Твоя (снизу)
+                ZStack {
+                    Color.red
+                    Text("ТЫ").font(.largeTitle).bold()
+                }
+                .frame(maxHeight: .infinity)
+                .onTapGesture { self.moveLine(by: -0.02) } // Ты тянешь вверх
+            }
+
+            // Линия фронта
+            Rectangle()
+                .fill(Color.white)
+                .frame(height: 10)
+                .offset(y: (UIScreen.main.bounds.height * position) - (UIScreen.main.bounds.height / 2))
+
+            if let winnerName = winner {
+                VStack {
+                    Text("Победа: \(winnerName)!")
                         .font(.system(size: 40, weight: .black))
+                        .foregroundColor(.white)
+                        .padding()
+                        .background(Color.black.opacity(0.8))
+                        .cornerRadius(20)
+                    
+                    Button("РЕВАНШ") {
+                        withAnimation {
+                            position = 0.5
+                            winner = nil
+                        }
+                    }
+                    .padding()
+                    .background(Color.white)
+                    .cornerRadius(10)
                 }
             }
-            
-            // Выбор региона
-            Picker("Выбери страну", selection: $selectedCountry) {
-                ForEach(countries, id: \.self) { country in
-                    Text("\(country["flag"]!) \(country["name"]!)").tag(country["name"]!)
-                }
-            }
-            .pickerStyle(.wheel)
-            
-            Text("Статус: \(isConnected ? "Имитация сим-карты \(selectedCountry)" : "Выключено")")
-                .foregroundColor(.secondary)
+        }
+        .edgesIgnoringSafeArea(.all)
+    }
+
+    func moveLine(by amount: CGFloat) {
+        guard winner == nil else { return }
+        
+        withAnimation(.interactiveSpring()) {
+            position += amount
+            if position >= 0.9 { winner = "БРАТ" }
+            if position <= 0.1 { winner = "ТЫ" }
         }
     }
 }
