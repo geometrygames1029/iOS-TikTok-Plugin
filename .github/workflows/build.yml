@@ -1,9 +1,45 @@
-name: Swift Build
+name: Build Single File App
 on: [push]
+
 jobs:
   build:
-    runs-on: macos-latest
+    runs-on: macos-12 # macOS Monterey для поддержки iOS 15
     steps:
-      - uses: actions/checkout@v4
-      - name: Build
-        run: swift build
+      - uses: actions/checkout@v3
+
+      - name: Create Xcode Project
+        run: |
+          # Используем инструмент swift-sh или простую генерацию через swift package
+          mkdir -p RandomApp/RandomApp
+          mv ContentView.swift RandomApp/RandomApp/
+          
+          # Создаем минимальный файл входа
+          echo 'import SwiftUI @main struct MyApp: App { var body: some Scene { WindowGroup { ContentView() } } }' > RandomApp/RandomApp/App.swift
+          
+          # Генерируем проект через Swift Package Manager
+          cd RandomApp
+          swift package init --type executable
+          # Нам нужен полноценный проект, поэтому просто используем xcodebuild напрямую к папке
+          
+      - name: Build IPA
+        run: |
+          # Собираем напрямую через xcodebuild без файла проекта, используя только файлы
+          xcodebuild -sdk iphoneos \
+            -configuration Release \
+            -arch arm64 \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            PRODUCT_NAME="Randomizer" \
+            clean build
+
+      - name: Packaging IPA
+        run: |
+          mkdir -p Payload
+          cp -r /Users/runner/Library/Developer/Xcode/DerivedData/*/Build/Products/Release-iphoneos/*.app Payload/ 2>/dev/null || cp -r build/Release-iphoneos/*.app Payload/
+          zip -r Randomizer.ipa Payload
+
+      - name: Upload
+        uses: actions/upload-artifact@v3
+        with:
+          name: MyCoolApp
+          path: Randomizer.ipa
