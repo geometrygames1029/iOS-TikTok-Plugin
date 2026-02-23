@@ -1,67 +1,95 @@
 import SwiftUI
+import PassKit
 
 struct ContentView: View {
-    @State private var position: CGFloat = 0.5 // 0.5 — середина
-    @State private var winner: String? = nil
-    
+    @State private var question: String = ""
+    @State private var result: String = "Задай вопрос судьбе"
+    @State private var showingPaymentSheet = false
+    @State private var isProcessing = false
+
     var body: some View {
-        ZStack {
-            VStack(spacing: 0) {
-                // Зона Брата (сверху)
-                ZStack {
-                    Color.blue
-                    Text("БРАТ").font(.largeTitle).bold().rotationEffect(.degrees(180))
-                }
-                .frame(maxHeight: .infinity)
-                .frame(height: UIScreen.main.bounds.height * position)
-                .onTapGesture { self.moveLine(by: 0.02) } // Брат тянет вниз (увеличивает свою долю)
+        VStack(spacing: 30) {
+            Text("🔮 Рандомайзер")
+                .font(.largeTitle).bold()
+            
+            TextField("Введите ваш вопрос...", text: $question)
+                .textFieldStyle(RoundedBorderTextFieldStyle())
+                .padding()
 
-                // Зона Твоя (снизу)
-                ZStack {
-                    Color.red
-                    Text("ТЫ").font(.largeTitle).bold()
+            Text(isProcessing ? "Обработка платежа..." : result)
+                .font(.title2)
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
+                .frame(height: 100)
+
+            Button(action: {
+                if !question.isEmpty {
+                    triggerFakePayment()
                 }
-                .frame(maxHeight: .infinity)
-                .onTapGesture { self.moveLine(by: -0.02) } // Ты тянешь вверх
+            }) {
+                HStack {
+                    Image(systemName: "applelogo")
+                    Text("Сыграть за 99₽")
+                }
+                .frame(maxWidth: .infinity)
+                .padding()
+                .background(Color.black)
+                .foregroundColor(.white)
+                .cornerRadius(12)
             }
-
-            // Линия фронта
-            Rectangle()
-                .fill(Color.white)
-                .frame(height: 10)
-                .offset(y: (UIScreen.main.bounds.height * position) - (UIScreen.main.bounds.height / 2))
-
-            if let winnerName = winner {
-                VStack {
-                    Text("Победа: \(winnerName)!")
-                        .font(.system(size: 40, weight: .black))
-                        .foregroundColor(.white)
-                        .padding()
-                        .background(Color.black.opacity(0.8))
-                        .cornerRadius(20)
-                    
-                    Button("РЕВАНШ") {
-                        withAnimation {
-                            position = 0.5
-                            winner = nil
-                        }
-                    }
-                    .padding()
-                    .background(Color.white)
-                    .cornerRadius(10)
-                }
-            }
+            .padding(.horizontal)
         }
-        .edgesIgnoringSafeArea(.all)
+        .padding()
     }
 
-    func moveLine(by amount: CGFloat) {
-        guard winner == nil else { return }
+    // Имитация вызова Apple Pay
+    func triggerFakePayment() {
+        let request = PKPaymentRequest()
+        request.merchantIdentifier = "merchant.fake.id"
+        request.countryCode = "RU"
+        request.currencyCode = "RUB"
+        request.supportedNetworks = [.visa, .masterCard, .mir]
+        request.merchantCapabilities = .capability3DS
         
-        withAnimation(.interactiveSpring()) {
-            position += amount
-            if position >= 0.9 { winner = "БРАТ" }
-            if position <= 0.1 { winner = "ТЫ" }
+        // Сумма в чеке
+        request.paymentSummaryItems = [
+            PKPaymentSummaryItem(label: "1 попытка в Рандомайзере", amount: 99.00)
+        ]
+
+        let controller = PKPaymentAuthorizationController(paymentRequest: request)
+        controller.delegate = PaymentHandler { success in
+            if success {
+                generateAnswer()
+            }
         }
+        controller.present(completion: nil)
+    }
+
+    func generateAnswer() {
+        isProcessing = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+            result = Bool.random() ? "ДА" : "НЕТ"
+            isProcessing = false
+            question = ""
+        }
+    }
+}
+
+// Хэндлер, который симулирует "ОК" без реальной транзакции
+class PaymentHandler: NSObject, PKPaymentAuthorizationControllerDelegate {
+    var onCompletion: (Bool) -> Void
+
+    init(onCompletion: @escaping (Bool) -> Void) {
+        self.onCompletion = onCompletion
+    }
+
+    func paymentAuthorizationController(_ controller: PKPaymentAuthorizationController, didAuthorizePayment payment: PKPayment, handler completion: @escaping (PKPaymentAuthorizationResult) -> Void) {
+        // Здесь магия: мы просто говорим системе, что всё успешно
+        completion(PKPaymentAuthorizationResult(status: .success, errors: nil))
+        onCompletion(true)
+    }
+
+    func paymentAuthorizationControllerDidFinish(_ controller: PKPaymentAuthorizationController) {
+        controller.dismiss(completion: nil)
     }
 }
