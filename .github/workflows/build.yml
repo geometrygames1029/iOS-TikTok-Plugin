@@ -1,45 +1,54 @@
-name: Build Single File App
+name: Build iOS App
 on: [push]
 
 jobs:
   build:
-    runs-on: macos-12 # macOS Monterey для поддержки iOS 15
+    runs-on: macos-12
     steps:
       - uses: actions/checkout@v3
 
-      - name: Create Xcode Project
+      - name: Setup Project Structure
         run: |
-          # Используем инструмент swift-sh или простую генерацию через swift package
-          mkdir -p RandomApp/RandomApp
-          mv ContentView.swift RandomApp/RandomApp/
+          mkdir -p Randomizer/Sources/Randomizer
+          # Создаем файл входа (App), который запускает твой ContentView
+          echo 'import SwiftUI
+          @main struct RandomApp: App {
+              var body: some Scene { WindowGroup { ContentView() } }
+          }' > Randomizer/Sources/Randomizer/App.swift
           
-          # Создаем минимальный файл входа
-          echo 'import SwiftUI @main struct MyApp: App { var body: some Scene { WindowGroup { ContentView() } } }' > RandomApp/RandomApp/App.swift
+          # Перемещаем твой код в рабочую папку
+          mv ContentView.swift Randomizer/Sources/Randomizer/
           
-          # Генерируем проект через Swift Package Manager
-          cd RandomApp
-          swift package init --type executable
-          # Нам нужен полноценный проект, поэтому просто используем xcodebuild напрямую к папке
-          
-      - name: Build IPA
+          # Создаем файл описания проекта
+          echo '// swift-tools-version:5.5
+          import PackageDescription
+          let package = Package(
+              name: "Randomizer",
+              platforms: [.iOS(.v15)],
+              products: [.executable(name: "Randomizer", targets: ["Randomizer"])],
+              targets: [.executableTarget(name: "Randomizer", path: "Sources/Randomizer")]
+          )' > Randomizer/Package.swift
+
+      - name: Build for iOS
         run: |
-          # Собираем напрямую через xcodebuild без файла проекта, используя только файлы
-          xcodebuild -sdk iphoneos \
+          cd Randomizer
+          xcodebuild build -scheme Randomizer \
+            -destination "generic/platform=iOS" \
             -configuration Release \
-            -arch arm64 \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
-            PRODUCT_NAME="Randomizer" \
-            clean build
+            clean
 
-      - name: Packaging IPA
+      - name: Package IPA
         run: |
           mkdir -p Payload
-          cp -r /Users/runner/Library/Developer/Xcode/DerivedData/*/Build/Products/Release-iphoneos/*.app Payload/ 2>/dev/null || cp -r build/Release-iphoneos/*.app Payload/
+          # Ищем скомпилированное приложение и упаковываем
+          APP_PATH=$(find /Users/runner/Library/Developer/Xcode/DerivedData -name "*.app" | head -n 1)
+          cp -r "$APP_PATH" Payload/
           zip -r Randomizer.ipa Payload
 
-      - name: Upload
+      - name: Upload Artifact
         uses: actions/upload-artifact@v3
         with:
-          name: MyCoolApp
+          name: iOS-Package
           path: Randomizer.ipa
